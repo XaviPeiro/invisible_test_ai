@@ -380,3 +380,167 @@ class GroupService:
 
         group.delete()
 
+
+class ExpenseServiceError(GroupServiceError):
+    """Base exception for expense service errors."""
+    pass
+
+
+class ExpenseNotFoundError(ExpenseServiceError):
+    """Raised when expense is not found."""
+    pass
+
+
+class InvalidPayerError(ExpenseServiceError):
+    """Raised when payer is not a group member."""
+    pass
+
+
+class ExpenseService:
+    """Service class for expense-related business logic."""
+
+    def create_expense(self, group_id: str, amount, paid_by_id: str, description: str = None):
+        """
+        Create a new expense for a group.
+
+        Args:
+            group_id: UUID of the group
+            amount: Expense amount (Decimal)
+            paid_by_id: UUID of the user who paid
+            description: Optional expense description
+
+        Returns:
+            The created Expense instance
+
+        Raises:
+            GroupNotFoundError: If group doesn't exist
+            UserNotFoundError: If payer doesn't exist
+            InvalidPayerError: If payer is not a group member
+            ValueError: If amount is invalid
+        """
+        from .models import Expense, Group
+        from decimal import Decimal
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            raise GroupNotFoundError('Group not found.')
+
+        try:
+            paid_by = User.objects.get(id=paid_by_id)
+        except User.DoesNotExist:
+            raise UserNotFoundError('User not found.')
+
+        # Validate payer is a group member
+        if paid_by not in group.members.all():
+            raise InvalidPayerError('Payer must be a member of the group.')
+
+        # Validate amount
+        if amount <= 0:
+            raise ValueError('Amount must be greater than zero.')
+
+        expense = Expense.objects.create(
+            group=group,
+            paid_by=paid_by,
+            amount=Decimal(str(amount)),
+            description=description.strip() if description else None
+        )
+        return expense
+
+    def get_group_expenses(self, group_id: str):
+        """
+        Get all expenses for a group.
+
+        Args:
+            group_id: UUID of the group
+
+        Returns:
+            QuerySet of Expense instances
+
+        Raises:
+            GroupNotFoundError: If group doesn't exist
+        """
+        from .models import Expense, Group
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            raise GroupNotFoundError('Group not found.')
+
+        return Expense.objects.filter(group=group).select_related('paid_by').order_by('-created_at')
+
+    def calculate_balance_summary(self, group_id: str):
+        """
+        Calculate balance summary for all group members.
+
+        For each member:
+        - total_paid: Sum of all expenses they paid
+        - total_owed: Sum of equal shares from all expenses
+        - net_balance: total_paid - total_owed
+
+        Equal share = expense.amount / number_of_members
+
+        Args:
+            group_id: UUID of the group
+
+        Returns:
+            List of dictionaries with user, total_paid, total_owed, net_balance
+
+        Raises:
+            GroupNotFoundError: If group doesn't exist
+        """
+        from .models import Expense, Group
+        from decimal import Decimal
+        from collections import defaultdict
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            raise GroupNotFoundError('Group not found.')
+
+        # Get all group members
+        members = group.members.all()
+        member_count = members.count()
+
+        if member_count == 0:
+            return []
+
+        # Initialize balances for all members
+        balances = defaultdict(lambda: {
+            'user': None,
+            'total_paid': Decimal('0.00'),
+            'total_owed': Decimal('0.00'),
+            'net_balance': Decimal('0.00')
+        })
+
+        # Initialize user references
+        for member in members:
+            balances[member.id]['user'] = member
+
+        # Get all expenses for the group
+        expenses = Expense.objects.filter(group=group)
+
+        # Calculate equal share per expense
+        for expense in expenses:
+            equal_share = expense.amount / Decimal(str(member_count))
+
+            # Add to paid_by's total_paid
+            balances[expense.paid_by.id]['total_paid'] += expense.amount
+
+            # Add equal_share to all members' total_owed
+            for member in members:
+                balances[member.id]['total_owed'] += equal_share
+
+        # Calculate net_balance for each member
+        summary = []
+        for member_id, balance_data in balances.items():
+            balance_data['net_balance'] = balance_data['total_paid'] - balance_data['total_owed']
+            summary.append({
+                'user': balance_data['user'],
+                'total_paid': balance_data['total_paid'],
+                'total_owed': balance_data['total_owed'],
+                'net_balance': balance_data['net_balance']
+            })
+
+        return summary
+

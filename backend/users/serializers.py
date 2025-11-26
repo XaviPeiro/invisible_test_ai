@@ -3,7 +3,7 @@ DRF Serializers for user-related operations.
 """
 from rest_framework import serializers
 
-from .models import User, Group, GroupMembership
+from .models import User, Group, GroupMembership, Expense
 
 
 class SignUpSerializer(serializers.Serializer):
@@ -116,4 +116,37 @@ class GroupMemberSerializer(serializers.ModelSerializer):
         model = GroupMembership
         fields = ['user', 'joined_at']
         read_only_fields = ['user', 'joined_at']
+
+
+class ExpenseSerializer(serializers.ModelSerializer):
+    """Serializer for expense responses."""
+
+    paid_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = Expense
+        fields = ['id', 'group', 'paid_by', 'amount', 'description', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class ExpenseCreateSerializer(serializers.Serializer):
+    """Serializer for creating expenses."""
+
+    amount = serializers.DecimalField(
+        required=True,
+        max_digits=10,
+        decimal_places=2,
+        min_value=0.01
+    )
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    paid_by = serializers.UUIDField(required=True)
+
+
+class BalanceSummarySerializer(serializers.Serializer):
+    """Serializer for balance summary responses."""
+
+    user = UserSerializer(read_only=True)
+    total_paid = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_owed = serializers.DecimalField(max_digits=10, decimal_places=2)
+    net_balance = serializers.DecimalField(max_digits=10, decimal_places=2)
 

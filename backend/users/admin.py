@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import User, Group, GroupMembership
+from .models import User, Group, GroupMembership, Expense
 
 
 @admin.register(User)
@@ -51,4 +51,14 @@ class GroupMembershipAdmin(admin.ModelAdmin):
     list_filter = ('joined_at',)
     search_fields = ('group__name', 'user__email')
     readonly_fields = ('joined_at',)
+
+
+@admin.register(Expense)
+class ExpenseAdmin(admin.ModelAdmin):
+    """Admin configuration for the Expense model."""
+
+    list_display = ('group', 'paid_by', 'amount', 'description', 'created_at')
+    list_filter = ('created_at', 'group')
+    search_fields = ('group__name', 'paid_by__email', 'description')
+    readonly_fields = ('id', 'created_at', 'updated_at')
 

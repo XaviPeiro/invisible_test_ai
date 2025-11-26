@@ -19,6 +19,9 @@ from .serializers import (
     GroupCreateSerializer,
     AddMemberSerializer,
     GroupMemberSerializer,
+    ExpenseSerializer,
+    ExpenseCreateSerializer,
+    BalanceSummarySerializer,
 )
 from .services import (
     UserService,
@@ -32,6 +35,9 @@ from .services import (
     GroupNotFoundError,
     UserNotFoundError,
     UserAlreadyMemberError,
+    ExpenseService,
+    ExpenseNotFoundError,
+    InvalidPayerError,
 )
 
 
@@ -559,5 +565,146 @@ class GroupMembersView(APIView):
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_409_CONFLICT
+            )
+
+
+class ExpenseListView(APIView):
+    """API view for listing and creating expenses."""
+
+    permission_classes = [IsAuthenticated]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.expense_service = ExpenseService()
+        self.group_service = GroupService()
+
+    def get(self, request, group_id):
+        """
+        Get all expenses for a group.
+
+        Returns:
+            200: List of expenses
+            404: Group not found
+            403: User is not a member
+        """
+        try:
+            # Check if user is a member of the group
+            group = self.group_service.get_group(group_id)
+            if request.user not in group.members.all():
+                return Response(
+                    {'error': 'You must be a member of the group to view expenses.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            expenses = self.expense_service.get_group_expenses(group_id)
+            serializer = ExpenseSerializer(expenses, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except GroupNotFoundError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    def post(self, request, group_id):
+        """
+        Create a new expense for a group.
+
+        Request body:
+            - amount (required): Expense amount
+            - paid_by (required): UUID of user who paid
+            - description (optional): Expense description
+
+        Returns:
+            201: Expense created successfully
+            400: Validation error
+            404: Group or user not found
+            403: User is not a member or payer is not a member
+        """
+        serializer = ExpenseCreateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(
+                {'errors': serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Check if user is a member of the group
+            group = self.group_service.get_group(group_id)
+            if request.user not in group.members.all():
+                return Response(
+                    {'error': 'You must be a member of the group to add expenses.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            expense = self.expense_service.create_expense(
+                group_id=group_id,
+                amount=serializer.validated_data['amount'],
+                paid_by_id=str(serializer.validated_data['paid_by']),
+                description=serializer.validated_data.get('description')
+            )
+
+            response_serializer = ExpenseSerializer(expense)
+            return Response(
+                response_serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+        except GroupNotFoundError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except UserNotFoundError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except InvalidPayerError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class ExpenseBalanceView(APIView):
+    """API view for getting balance summary."""
+
+    permission_classes = [IsAuthenticated]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.expense_service = ExpenseService()
+        self.group_service = GroupService()
+
+    def get(self, request, group_id):
+        """
+        Get balance summary for a group.
+
+        Returns:
+            200: Balance summary for all members
+            404: Group not found
+            403: User is not a member
+        """
+        try:
+            # Check if user is a member of the group
+            group = self.group_service.get_group(group_id)
+            if request.user not in group.members.all():
+                return Response(
+                    {'error': 'You must be a member of the group to view balance summary.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            summary = self.expense_service.calculate_balance_summary(group_id)
+            serializer = BalanceSummarySerializer(summary, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except GroupNotFoundError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_404_NOT_FOUND
             )
 

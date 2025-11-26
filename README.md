@@ -238,6 +238,105 @@ POST /api/groups/<group_id>/members/
 - `404 Not Found`: Group or user not found
 - `409 Conflict`: User already a member
 
+#### Expense Management
+
+```
+POST /api/groups/<group_id>/expenses/
+GET /api/groups/<group_id>/expenses/
+GET /api/groups/<group_id>/expenses/balance/
+```
+
+**Create Expense (POST `/api/groups/<group_id>/expenses/`):**
+- Creates a new expense for a group
+- Requires authentication and group membership
+- Payer must be a group member
+
+**Request Body:**
+```json
+{
+  "amount": "100.00",
+  "paid_by": "uuid-of-user-who-paid",
+  "description": "Optional expense description"
+}
+```
+
+**Success Response (201):**
+```json
+{
+  "id": "uuid",
+  "group": "group-uuid",
+  "paid_by": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "username": "username",
+    "date_joined": "2024-01-01T00:00:00Z"
+  },
+  "amount": "100.00",
+  "description": "Optional expense description",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z"
+}
+```
+
+**List Expenses (GET `/api/groups/<group_id>/expenses/`):**
+- Returns all expenses for a group (most recent first)
+- Requires authentication and group membership
+
+**Success Response (200):**
+```json
+[
+  {
+    "id": "uuid",
+    "group": "group-uuid",
+    "paid_by": {...},
+    "amount": "100.00",
+    "description": "Expense description",
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  }
+]
+```
+
+**Get Balance Summary (GET `/api/groups/<group_id>/expenses/balance/`):**
+- Returns balance summary for all group members
+- Calculates equal share per expense (expense.amount / number_of_members)
+- For each member shows: total_paid, total_owed, net_balance
+- Requires authentication and group membership
+
+**Success Response (200):**
+```json
+[
+  {
+    "user": {
+      "id": "uuid",
+      "email": "user@example.com",
+      "username": "username",
+      "date_joined": "2024-01-01T00:00:00Z"
+    },
+    "total_paid": "150.00",
+    "total_owed": "50.00",
+    "net_balance": "100.00"
+  }
+]
+```
+
+**Balance Calculation Example:**
+- Group has 3 members
+- Expense 1: $90 paid by User A
+- Expense 2: $60 paid by User B
+- Total: $150, equal share per person: $50
+
+**Balances:**
+- User A: paid $90, owes $50, net +$40
+- User B: paid $60, owes $50, net +$10
+- User C: paid $0, owes $50, net -$50
+
+**Error Responses:**
+- `400 Bad Request`: Validation errors (invalid amount, payer not a group member)
+- `401 Unauthorized`: Not authenticated
+- `403 Forbidden`: Not a group member
+- `404 Not Found`: Group or user not found
+
 ### Running Tests
 
 With Docker (from project root):

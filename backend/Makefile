@@ -1,4 +1,4 @@
-.PHONY: help signup login logout profile profile-update change-password groups groups-create groups-detail groups-list groups-members
+.PHONY: help signup login logout profile profile-update change-password groups groups-create groups-detail groups-list groups-members expenses-create expenses-list expenses-balance group-members-list add-group-member
 
 API_URL = http://localhost:8000/api/auth
 GROUPS_URL = http://localhost:8000/api/groups
@@ -18,6 +18,9 @@ help:
 	@echo "  make groups-detail   - Get group details"
 	@echo "  make groups-list     - List group members"
 	@echo "  make groups-members  - Add member to group"
+	@echo "  make expenses-create - Create an expense for a group"
+	@echo "  make expenses-list   - List expenses for a group"
+	@echo "  make expenses-balance - Get balance summary for a group"
 
 signup:
 	@curl -X POST $(API_URL)/signup/ \
@@ -88,7 +91,7 @@ groups-detail:
 		-H "Content-Type: application/json" \
 		-s | python3 -m json.tool
 
-group-members-list:
+groups-list:
 	@LOGIN_RESPONSE=$$(curl -s -X POST $(API_URL)/login/ -H "Content-Type: application/json" -d '{"email":"user@example.com","password":"securepassword123"}'); \
 	ACCESS=$$(echo $$LOGIN_RESPONSE | python3 -c "import sys, json; print(json.load(sys.stdin).get('access', ''))"); \
 	GROUP_RESPONSE=$$(curl -s -X POST $(GROUPS_URL)/ -H "Authorization: Bearer $$ACCESS" -H "Content-Type: application/json" -d '{"name":"Members Group"}'); \
@@ -98,7 +101,7 @@ group-members-list:
 		-H "Content-Type: application/json" \
 		-s | python3 -m json.tool
 
-add-group-member:
+groups-members:
 	@LOGIN_RESPONSE=$$(curl -s -X POST $(API_URL)/login/ -H "Content-Type: application/json" -d '{"email":"user@example.com","password":"securepassword123"}'); \
 	ACCESS=$$(echo $$LOGIN_RESPONSE | python3 -c "import sys, json; print(json.load(sys.stdin).get('access', ''))"); \
 	GROUP_RESPONSE=$$(curl -s -X POST $(GROUPS_URL)/ -H "Authorization: Bearer $$ACCESS" -H "Content-Type: application/json" -d '{"name":"Add Member Group"}'); \
@@ -109,4 +112,37 @@ add-group-member:
 		-H "Authorization: Bearer $$ACCESS" \
 		-H "Content-Type: application/json" \
 		-d "{\"user_id\":\"$$USER_ID\"}" \
+		-s | python3 -m json.tool
+
+expenses-create:
+	@LOGIN_RESPONSE=$$(curl -s -X POST $(API_URL)/login/ -H "Content-Type: application/json" -d '{"email":"user@example.com","password":"securepassword123"}'); \
+	ACCESS=$$(echo $$LOGIN_RESPONSE | python3 -c "import sys, json; print(json.load(sys.stdin).get('access', ''))"); \
+	GROUP_RESPONSE=$$(curl -s -X POST $(GROUPS_URL)/ -H "Authorization: Bearer $$ACCESS" -H "Content-Type: application/json" -d '{"name":"Expense Group"}'); \
+	GROUP_ID=$$(echo $$GROUP_RESPONSE | python3 -c "import sys, json; print(json.load(sys.stdin).get('id', ''))"); \
+	USER_RESPONSE=$$(curl -s -X GET $(API_URL)/profile/ -H "Authorization: Bearer $$ACCESS"); \
+	USER_ID=$$(echo $$USER_RESPONSE | python3 -c "import sys, json; print(json.load(sys.stdin).get('id', ''))"); \
+	curl -X POST $(GROUPS_URL)/$$GROUP_ID/expenses/ \
+		-H "Authorization: Bearer $$ACCESS" \
+		-H "Content-Type: application/json" \
+		-d "{\"amount\":\"100.00\",\"paid_by\":\"$$USER_ID\",\"description\":\"Test expense\"}" \
+		-s | python3 -m json.tool
+
+expenses-list:
+	@LOGIN_RESPONSE=$$(curl -s -X POST $(API_URL)/login/ -H "Content-Type: application/json" -d '{"email":"user@example.com","password":"securepassword123"}'); \
+	ACCESS=$$(echo $$LOGIN_RESPONSE | python3 -c "import sys, json; print(json.load(sys.stdin).get('access', ''))"); \
+	GROUP_RESPONSE=$$(curl -s -X POST $(GROUPS_URL)/ -H "Authorization: Bearer $$ACCESS" -H "Content-Type: application/json" -d '{"name":"List Expenses Group"}'); \
+	GROUP_ID=$$(echo $$GROUP_RESPONSE | python3 -c "import sys, json; print(json.load(sys.stdin).get('id', ''))"); \
+	curl -X GET $(GROUPS_URL)/$$GROUP_ID/expenses/ \
+		-H "Authorization: Bearer $$ACCESS" \
+		-H "Content-Type: application/json" \
+		-s | python3 -m json.tool
+
+expenses-balance:
+	@LOGIN_RESPONSE=$$(curl -s -X POST $(API_URL)/login/ -H "Content-Type: application/json" -d '{"email":"user@example.com","password":"securepassword123"}'); \
+	ACCESS=$$(echo $$LOGIN_RESPONSE | python3 -c "import sys, json; print(json.load(sys.stdin).get('access', ''))"); \
+	GROUP_RESPONSE=$$(curl -s -X POST $(GROUPS_URL)/ -H "Authorization: Bearer $$ACCESS" -H "Content-Type: application/json" -d '{"name":"Balance Group"}'); \
+	GROUP_ID=$$(echo $$GROUP_RESPONSE | python3 -c "import sys, json; print(json.load(sys.stdin).get('id', ''))"); \
+	curl -X GET $(GROUPS_URL)/$$GROUP_ID/expenses/balance/ \
+		-H "Authorization: Bearer $$ACCESS" \
+		-H "Content-Type: application/json" \
 		-s | python3 -m json.tool
