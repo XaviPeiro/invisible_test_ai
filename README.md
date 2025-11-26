@@ -63,6 +63,44 @@ POST /api/auth/signup/
 - `400 Bad Request`: Validation errors (invalid email, weak password)
 - `409 Conflict`: Email or username already exists
 
+#### User Login
+
+```
+POST /api/auth/login/
+```
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "securepassword123"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "username": "optional_username",
+    "date_joined": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Validation errors (missing fields, invalid email format)
+- `401 Unauthorized`: Invalid email or password
+
+**Using the Access Token:**
+Include the access token in the Authorization header for protected endpoints:
+```
+Authorization: Bearer <access_token>
+```
+
 ### Running Tests
 
 With Docker:

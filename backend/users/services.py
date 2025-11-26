@@ -34,6 +34,11 @@ class WeakPasswordError(UserServiceError):
     pass
 
 
+class InvalidCredentialsError(UserServiceError):
+    """Raised when email or password is incorrect."""
+    pass
+
+
 class UserService:
     """Service class for user-related business logic."""
 
@@ -108,4 +113,36 @@ class UserService:
     def _username_exists(self, username: str) -> bool:
         """Check if username is already taken."""
         return User.objects.filter(username__iexact=username).exists()
+
+    def login(self, email: str, password: str) -> User:
+        """
+        Authenticate a user with email and password.
+
+        Args:
+            email: User's email address
+            password: User's password
+
+        Returns:
+            The authenticated User instance
+
+        Raises:
+            InvalidCredentialsError: If email or password is incorrect
+        """
+        # Normalize email (case-insensitive lookup)
+        normalized_email = User.objects.normalize_email(email)
+        
+        # Try to get user by email (case-insensitive)
+        try:
+            user = User.objects.get(email__iexact=normalized_email)
+        except User.DoesNotExist:
+            raise InvalidCredentialsError('Invalid email or password.')
+
+        # Check password
+        if not user.check_password(password):
+            raise InvalidCredentialsError('Invalid email or password.')
+
+        if not user.is_active:
+            raise InvalidCredentialsError('User account is disabled.')
+
+        return user
 

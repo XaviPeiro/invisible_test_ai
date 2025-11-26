@@ -24,6 +24,17 @@ class SignUpSerializer(serializers.Serializer):
     )
 
 
+class LoginSerializer(serializers.Serializer):
+    """Serializer for user login requests."""
+
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(
+        required=True,
+        write_only=True,
+        style={'input_type': 'password'}
+    )
+
+
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for user responses."""
 
