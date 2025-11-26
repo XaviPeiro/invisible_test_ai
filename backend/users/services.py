@@ -39,6 +39,11 @@ class InvalidCredentialsError(UserServiceError):
     pass
 
 
+class InvalidPasswordError(UserServiceError):
+    """Raised when old password is incorrect."""
+    pass
+
+
 class UserService:
     """Service class for user-related business logic."""
 
@@ -145,4 +150,65 @@ class UserService:
             raise InvalidCredentialsError('User account is disabled.')
 
         return user
+
+    def update_profile(self, user: User, email: str = None, username: str = None) -> User:
+        """
+        Update user profile information.
+
+        Args:
+            user: The User instance to update
+            email: New email address (optional)
+            username: New username (optional)
+
+        Returns:
+            The updated User instance
+
+        Raises:
+            InvalidEmailError: If email format is invalid
+            EmailAlreadyExistsError: If email is already registered by another user
+            UsernameAlreadyExistsError: If username is already taken by another user
+        """
+        # Validate email if provided
+        if email is not None:
+            self._validate_email(email)
+            # Check if email is already taken by another user
+            if self._email_exists(email) and user.email.lower() != email.lower():
+                raise EmailAlreadyExistsError('A user with this email already exists.')
+            user.email = email
+
+        # Check username if provided
+        if username is not None:
+            # Check if username is already taken by another user
+            if username and self._username_exists(username):
+                existing_user = User.objects.filter(username__iexact=username).first()
+                if existing_user and existing_user.id != user.id:
+                    raise UsernameAlreadyExistsError('A user with this username already exists.')
+            user.username = username
+
+        user.save()
+        return user
+
+    def change_password(self, user: User, old_password: str, new_password: str) -> None:
+        """
+        Change user password.
+
+        Args:
+            user: The User instance
+            old_password: Current password
+            new_password: New password
+
+        Raises:
+            InvalidPasswordError: If old password is incorrect
+            WeakPasswordError: If new password doesn't meet requirements
+        """
+        # Verify old password
+        if not user.check_password(old_password):
+            raise InvalidPasswordError('Current password is incorrect.')
+
+        # Validate new password
+        self._validate_password(new_password)
+
+        # Set new password
+        user.set_password(new_password)
+        user.save()
 

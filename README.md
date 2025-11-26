@@ -96,6 +96,68 @@ Include the access token in the Authorization header for protected endpoints:
 Authorization: Bearer <access_token>
 ```
 
+#### User Profile Management
+
+```
+GET /api/auth/profile/
+PUT /api/auth/profile/
+PATCH /api/auth/profile/
+```
+
+**Get Profile (GET):**
+- Requires authentication
+- Returns current user's profile information
+
+**Update Profile (PUT/PATCH):**
+- Requires authentication
+- Request Body (all fields optional):
+```json
+{
+  "email": "newemail@example.com",
+  "username": "newusername"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "id": "uuid",
+  "email": "newemail@example.com",
+  "username": "newusername",
+  "date_joined": "2024-01-01T00:00:00Z"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Validation errors (invalid email format)
+- `401 Unauthorized`: Not authenticated
+- `409 Conflict`: Email or username already exists
+
+#### Change Password
+
+```
+POST /api/auth/profile/change-password/
+```
+
+**Request Body:**
+```json
+{
+  "old_password": "currentpassword123",
+  "new_password": "newpassword123"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "message": "Password changed successfully."
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Validation errors (weak password, missing fields)
+- `401 Unauthorized`: Invalid old password or not authenticated
+
 ### Running Tests
 
 With Docker (from project root):
