@@ -1,0 +1,20 @@
+# Django and DRF
+Django==5.0.1
+djangorestframework==3.14.0
+
+# PostgreSQL
+psycopg2-binary==2.9.9
+
+# JWT Authentication (for future use)
+djangorestframework-simplejwt==5.3.1
+
+# Environment variables
+python-decouple==3.8
+
+# Testing
+pytest==7.4.4
+pytest-django==4.7.0
+
+# Development
+gunicorn==21.2.0
+

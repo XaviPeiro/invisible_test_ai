@@ -1,0 +1,7 @@
+---
+alwaysApply: true
+---
+- Keep it simple, it is POC, focus the app is functional and the features achieved.
+    - Use tools (frameworks and libs) that simplifies your development.
+    - Let's get it ready just to be executed in localhost.
+        - With docker and docker compose. 

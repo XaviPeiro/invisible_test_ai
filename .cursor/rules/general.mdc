@@ -1,0 +1,9 @@
+---
+alwaysApply: true
+---
+
+# Policies
+- Add the minimum number of test that ensures the code is working as defined in the 'FUNCTIONAL REQUIREMENTS'.
+- Use standard patterns in every technology you use.
+- Always ask when for confirmation when you add a new technology (as MongoDB, pytest, nginx, etc...).
+- Keep a README.md updated about how to execute the application.

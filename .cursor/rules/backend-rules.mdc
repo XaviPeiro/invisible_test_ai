@@ -1,0 +1,7 @@
+---
+alwaysApply: false
+---
+
+- Use OOP. 
+- Use PostgreSQL, DjangoRest and Pytest.
+- Pick existing libs related to Django world (if possible and simpler than do it on your own) to fulfill the requirements.
