@@ -17,7 +17,9 @@ services:
       retries: 5
 
   backend:
-    build: .
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: invisible_backend
     command: >
       sh -c "python manage.py makemigrations --noinput && 
@@ -25,7 +27,7 @@ services:
             python manage.py createsuperuser &&
             python manage.py runserver 0.0.0.0:8000"
     volumes:
-      - .:/app
+      - ./backend:/app
     ports:
       - "8000:8000"
     environment:

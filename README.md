@@ -20,17 +20,12 @@ A 3-component application for expense sharing between groups of users.
 
 ### Quick Start (Docker)
 
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-
-2. Start the application:
+1. From the project root, start the application:
    ```bash
    docker-compose up --build
    ```
 
-3. The API will be available at `http://localhost:8000`
+2. The API will be available at `http://localhost:8000`
 
 ### API Endpoints
 
@@ -103,7 +98,7 @@ Authorization: Bearer <access_token>
 
 ### Running Tests
 
-With Docker:
+With Docker (from project root):
 ```bash
 docker-compose exec backend pytest
 ```
