@@ -56,3 +56,46 @@ class User(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
 
+
+class Group(models.Model):
+    """Group model for expense sharing."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='created_groups'
+    )
+    members = models.ManyToManyField(
+        User,
+        related_name='expense_groups',
+        through='GroupMembership'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'groups'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
+
+
+class GroupMembership(models.Model):
+    """Intermediate model for Group-User relationship."""
+
+    group = models.ForeignKey(Group, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'group_memberships'
+        unique_together = ['group', 'user']
+        ordering = ['-joined_at']
+
+    def __str__(self):
+        return f'{self.user.email} in {self.group.name}'
+

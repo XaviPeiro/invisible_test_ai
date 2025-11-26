@@ -212,3 +212,171 @@ class UserService:
         user.set_password(new_password)
         user.save()
 
+
+class GroupServiceError(UserServiceError):
+    """Base exception for group service errors."""
+    pass
+
+
+class GroupNotFoundError(GroupServiceError):
+    """Raised when group is not found."""
+    pass
+
+
+class UserNotFoundError(GroupServiceError):
+    """Raised when user is not found."""
+    pass
+
+
+class UserAlreadyMemberError(GroupServiceError):
+    """Raised when user is already a member of the group."""
+    pass
+
+
+class GroupService:
+    """Service class for group-related business logic."""
+
+    def create_group(self, name: str, created_by: User, description: str = None):
+        """
+        Create a new group.
+
+        Args:
+            name: Group name (required)
+            created_by: User creating the group (required)
+            description: Group description (optional)
+
+        Returns:
+            The created Group instance
+
+        Raises:
+            ValueError: If name is empty
+        """
+        from .models import Group
+
+        if not name or not name.strip():
+            raise ValueError('Group name is required.')
+
+        group = Group.objects.create(
+            name=name.strip(),
+            description=description.strip() if description else None,
+            created_by=created_by
+        )
+        # Add creator as a member
+        group.members.add(created_by)
+        return group
+
+    def add_member(self, group_id: str, user_id: str):
+        """
+        Add a user to a group.
+
+        Args:
+            group_id: UUID of the group
+            user_id: UUID of the user to add
+
+        Returns:
+            The GroupMembership instance
+
+        Raises:
+            GroupNotFoundError: If group doesn't exist
+            UserNotFoundError: If user doesn't exist
+            UserAlreadyMemberError: If user is already a member
+        """
+        from .models import Group, GroupMembership
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            raise GroupNotFoundError('Group not found.')
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            raise UserNotFoundError('User not found.')
+
+        # Check if user is already a member
+        if GroupMembership.objects.filter(group=group, user=user).exists():
+            raise UserAlreadyMemberError('User is already a member of this group.')
+
+        membership = GroupMembership.objects.create(group=group, user=user)
+        return membership
+
+    def get_user_groups(self, user: User):
+        """
+        Get all groups for a user.
+
+        Args:
+            user: User instance
+
+        Returns:
+            QuerySet of Group instances
+        """
+        from .models import Group
+
+        return Group.objects.filter(members=user).distinct()
+
+    def get_group_members(self, group_id: str):
+        """
+        Get all members of a group.
+
+        Args:
+            group_id: UUID of the group
+
+        Returns:
+            QuerySet of User instances
+
+        Raises:
+            GroupNotFoundError: If group doesn't exist
+        """
+        from .models import Group
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            raise GroupNotFoundError('Group not found.')
+
+        return group.members.all()
+
+    def get_group(self, group_id: str):
+        """
+        Get a group by ID.
+
+        Args:
+            group_id: UUID of the group
+
+        Returns:
+            Group instance
+
+        Raises:
+            GroupNotFoundError: If group doesn't exist
+        """
+        from .models import Group
+
+        try:
+            return Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            raise GroupNotFoundError('Group not found.')
+
+    def delete_group(self, group_id: str, user: User):
+        """
+        Delete a group (only if user is the creator).
+
+        Args:
+            group_id: UUID of the group
+            user: User attempting to delete
+
+        Raises:
+            GroupNotFoundError: If group doesn't exist
+            PermissionError: If user is not the creator
+        """
+        from .models import Group
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            raise GroupNotFoundError('Group not found.')
+
+        if group.created_by != user:
+            raise PermissionError('Only the group creator can delete the group.')
+
+        group.delete()
+

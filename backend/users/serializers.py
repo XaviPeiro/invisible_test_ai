@@ -3,7 +3,7 @@ DRF Serializers for user-related operations.
 """
 from rest_framework import serializers
 
-from .models import User
+from .models import User, Group, GroupMembership
 
 
 class SignUpSerializer(serializers.Serializer):
@@ -76,4 +76,44 @@ class LogoutSerializer(serializers.Serializer):
     """Serializer for logout requests."""
 
     refresh = serializers.CharField(required=True)
+
+
+class GroupSerializer(serializers.ModelSerializer):
+    """Serializer for group responses."""
+
+    created_by = UserSerializer(read_only=True)
+    member_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Group
+        fields = ['id', 'name', 'description', 'created_by', 'member_count', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
+
+    def get_member_count(self, obj):
+        """Get the number of members in the group."""
+        return obj.members.count()
+
+
+class GroupCreateSerializer(serializers.Serializer):
+    """Serializer for creating groups."""
+
+    name = serializers.CharField(required=True, max_length=255)
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class AddMemberSerializer(serializers.Serializer):
+    """Serializer for adding members to groups."""
+
+    user_id = serializers.UUIDField(required=True)
+
+
+class GroupMemberSerializer(serializers.ModelSerializer):
+    """Serializer for group member responses."""
+
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = GroupMembership
+        fields = ['user', 'joined_at']
+        read_only_fields = ['user', 'joined_at']
 

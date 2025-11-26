@@ -158,6 +158,86 @@ POST /api/auth/profile/change-password/
 - `400 Bad Request`: Validation errors (weak password, missing fields)
 - `401 Unauthorized`: Invalid old password or not authenticated
 
+#### Group Management
+
+```
+GET /api/groups/
+POST /api/groups/
+GET /api/groups/<group_id>/
+DELETE /api/groups/<group_id>/
+GET /api/groups/<group_id>/members/
+POST /api/groups/<group_id>/members/
+```
+
+**List/Create Groups (GET/POST `/api/groups/`):**
+- GET: Returns all groups the authenticated user is a member of
+- POST: Creates a new group (creator is automatically added as member)
+
+**Request Body (POST):**
+```json
+{
+  "name": "My Group",
+  "description": "Optional description"
+}
+```
+
+**Success Response (201):**
+```json
+{
+  "id": "uuid",
+  "name": "My Group",
+  "description": "Optional description",
+  "created_by": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "username": "username",
+    "date_joined": "2024-01-01T00:00:00Z"
+  },
+  "member_count": 1,
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z"
+}
+```
+
+**Get Group Details (GET `/api/groups/<group_id>/`):**
+- Returns group details (only for group members)
+
+**Delete Group (DELETE `/api/groups/<group_id>/`):**
+- Deletes a group (only creator can delete)
+
+**List Group Members (GET `/api/groups/<group_id>/members/`):**
+- Returns list of group members with join dates
+
+**Add Member (POST `/api/groups/<group_id>/members/`):**
+- Adds a user to the group (only group members can add others)
+
+**Request Body:**
+```json
+{
+  "user_id": "uuid-of-user-to-add"
+}
+```
+
+**Success Response (201):**
+```json
+{
+  "user": {
+    "id": "uuid",
+    "email": "member@example.com",
+    "username": "member",
+    "date_joined": "2024-01-01T00:00:00Z"
+  },
+  "joined_at": "2024-01-01T00:00:00Z"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Validation errors (missing name, invalid user_id)
+- `401 Unauthorized`: Not authenticated
+- `403 Forbidden`: Not a group member or not the creator
+- `404 Not Found`: Group or user not found
+- `409 Conflict`: User already a member
+
 ### Running Tests
 
 With Docker (from project root):

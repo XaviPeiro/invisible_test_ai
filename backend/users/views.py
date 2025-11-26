@@ -15,6 +15,10 @@ from .serializers import (
     ProfileUpdateSerializer,
     PasswordChangeSerializer,
     LogoutSerializer,
+    GroupSerializer,
+    GroupCreateSerializer,
+    AddMemberSerializer,
+    GroupMemberSerializer,
 )
 from .services import (
     UserService,
@@ -24,6 +28,10 @@ from .services import (
     WeakPasswordError,
     InvalidCredentialsError,
     InvalidPasswordError,
+    GroupService,
+    GroupNotFoundError,
+    UserNotFoundError,
+    UserAlreadyMemberError,
 )
 
 
@@ -337,5 +345,219 @@ class LogoutView(APIView):
             return Response(
                 {'error': 'Invalid refresh token.'},
                 status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class GroupListView(APIView):
+    """API view for listing and creating groups."""
+
+    permission_classes = [IsAuthenticated]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.group_service = GroupService()
+
+    def get(self, request):
+        """
+        Get all groups for the current user.
+
+        Returns:
+            200: List of user's groups
+        """
+        groups = self.group_service.get_user_groups(request.user)
+        serializer = GroupSerializer(groups, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        """
+        Create a new group.
+
+        Request body:
+            - name (required): Group name
+            - description (optional): Group description
+
+        Returns:
+            201: Group created successfully
+            400: Validation error
+        """
+        serializer = GroupCreateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(
+                {'errors': serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            group = self.group_service.create_group(
+                name=serializer.validated_data['name'],
+                created_by=request.user,
+                description=serializer.validated_data.get('description')
+            )
+
+            response_serializer = GroupSerializer(group)
+            return Response(
+                response_serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class GroupDetailView(APIView):
+    """API view for group details and deletion."""
+
+    permission_classes = [IsAuthenticated]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.group_service = GroupService()
+
+    def get(self, request, group_id):
+        """
+        Get group details.
+
+        Returns:
+            200: Group details
+            404: Group not found
+        """
+        try:
+            group = self.group_service.get_group(group_id)
+            # Check if user is a member
+            if request.user not in group.members.all():
+                return Response(
+                    {'error': 'You are not a member of this group.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            serializer = GroupSerializer(group)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except GroupNotFoundError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    def delete(self, request, group_id):
+        """
+        Delete a group (only creator can delete).
+
+        Returns:
+            204: Group deleted successfully
+            404: Group not found
+            403: Permission denied
+        """
+        try:
+            self.group_service.delete_group(group_id, request.user)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except GroupNotFoundError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except PermissionError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+
+class GroupMembersView(APIView):
+    """API view for managing group members."""
+
+    permission_classes = [IsAuthenticated]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.group_service = GroupService()
+
+    def get(self, request, group_id):
+        """
+        Get all members of a group.
+
+        Returns:
+            200: List of group members
+            404: Group not found
+            403: User is not a member
+        """
+        try:
+            group = self.group_service.get_group(group_id)
+            # Check if user is a member
+            if request.user not in group.members.all():
+                return Response(
+                    {'error': 'You are not a member of this group.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            members = self.group_service.get_group_members(group_id)
+            # Use GroupMembership to get joined_at
+            from .models import GroupMembership
+            memberships = GroupMembership.objects.filter(group=group).select_related('user')
+            serializer = GroupMemberSerializer(memberships, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except GroupNotFoundError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    def post(self, request, group_id):
+        """
+        Add a member to a group.
+
+        Request body:
+            - user_id (required): UUID of user to add
+
+        Returns:
+            201: Member added successfully
+            400: Validation error
+            404: Group or user not found
+            409: User already a member
+            403: User is not a member of the group
+        """
+        serializer = AddMemberSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(
+                {'errors': serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Check if requester is a member of the group
+            group = self.group_service.get_group(group_id)
+            if request.user not in group.members.all():
+                return Response(
+                    {'error': 'You must be a member of the group to add members.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            membership = self.group_service.add_member(
+                group_id=group_id,
+                user_id=str(serializer.validated_data['user_id'])
+            )
+
+            response_serializer = GroupMemberSerializer(membership)
+            return Response(
+                response_serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+        except GroupNotFoundError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except UserNotFoundError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except UserAlreadyMemberError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_409_CONFLICT
             )
 
