@@ -11,7 +11,7 @@ help:
 	@echo "  make login           - Login and get JWT tokens"
 	@echo "  make logout          - Logout and blacklist refresh token"
 	@echo "  make profile         - Get current user profile"
-	@echo "  make profile-update  - Update user profile"
+	@echo "  make profile-update USERNAME=newname - Update user profile"
 	@echo "  make change-password - Change user password"
 	@echo "  make groups          - List user's groups"
 	@echo "  make groups-create   - Create a new group"
@@ -51,10 +51,14 @@ profile:
 		-s | python3 -m json.tool
 
 profile-update:
-	@curl -X PUT $(API_URL)/profile/ \
+	@if [ -z "$(USERNAME)" ]; then \
+		echo "Error: USERNAME parameter is required. Usage: make profile-update USERNAME=newname"; \
+		exit 1; \
+	fi; \
+	curl -X PUT $(API_URL)/profile/ \
 		-H "Authorization: Bearer $(TOKEN)" \
 		-H "Content-Type: application/json" \
-		-d '{"username":"updateduser"}' \
+		-d "{\"username\":\"$(USERNAME)\"}" \
 		-s | python3 -m json.tool
 
 change-password:
